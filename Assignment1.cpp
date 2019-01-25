@@ -9,8 +9,34 @@ using namespace std;
 float scale = 1.0, x = 0.0, y = 0.0;
 static GLfloat spin = 0.0,left_spin = -45.0;
 const GLint WIDTH = 800, HEIGHT = 600;
-double xpos,ypos;
-bool left_press = false;
+double xpos,ypos,diffxpos,diffypos;
+bool left_press = false,right_press =false,press_and_release = false;
+
+
+void determine_coords(GLFWwindow* window){
+    glfwGetCursorPos(window, &xpos, &ypos);
+
+    GLint viewport[4];
+    GLdouble modelview[16];
+    GLdouble projection[16];
+    GLfloat winX, winY, winZ=0;
+    GLdouble posX, posY, posZ;
+
+    glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
+    glGetDoublev(GL_PROJECTION_MATRIX, projection);
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+
+    winX = (float)xpos;
+    winY = (float)viewport[3] - (float)ypos;
+
+    glReadPixels(xpos, int(winY), 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &winZ);
+
+    gluUnProject(winX, winY, winZ, modelview, projection, viewport, &posX, &posY,
+                &posZ);
+    xpos = posX;
+    ypos = posY;
+}
 
 class Point{
 public:
@@ -28,6 +54,21 @@ public:
     }
     GLfloat getZ() const {
         return z;
+    }
+
+    void setX(float _x) {
+        x = _x;
+    }
+    void setY(float _y) {
+        y = _y;
+    }
+    void setZ(float _z) {
+        z = _z;
+    }
+
+    void setXY(float _x,float _y) {
+        x = _x;
+        y = _y;
     }
 
     void set_coord(GLfloat _x,GLfloat _y,GLfloat _z = 0.0) {
@@ -180,6 +221,10 @@ public:
         red_rotate = value;
     }
 
+    void set_right_press(bool value) {
+        point_pick = true;
+    }
+
     void normalize(GLfloat norm){
         LeftBottom.normalize(norm);
         LeftTop.normalize(norm);
@@ -194,40 +239,23 @@ public:
         return false;
     }
 
-    void rotate() {
-        glPushMatrix();
-        glLoadIdentity();//load identity matrix
-        glScalef(scale, scale, scale);
-        glTranslatef(x, y, 0);//move forward 4 units
-
-        //next 3 lines are trickier.
-        //first translate the coordinates to left bottom to make left-bottom the origin point.
-        //and then rotate otherwise it will rotate w.r.t origin and not left-bottom point.
-        glTranslatef(LeftBottom.getX(),LeftBottom.getY(),0.0f);
-        glRotatef(left_spin,0.0f,0.0f,1.0f);
-        // //And move it back.
-        glTranslatef(-LeftBottom.getX(),-LeftBottom.getY(),0.0f);
-
-        //fill red color.
-        glColor3f(1.0f,0.0f,0.0f);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        glBegin(GL_QUADS);
-            glVertex3f(LeftBottom.getX(),LeftBottom.getY(),LeftBottom.getZ());
-            glVertex3f(LeftTop.getX(),LeftTop.getY(),LeftTop.getZ());
-            glVertex3f(RightTop.getX(),RightTop.getY(),RightTop.getZ());
-            glVertex3f(RightBottom.getX(),RightBottom.getY(),RightBottom.getZ());
-        glEnd();
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        glPopMatrix();
-    }
-
     void Draw(){
+        glPushMatrix();
+        if(press_and_release == true && point_pick == true) {
+            LeftBottom.setXY(LeftBottom.getX() + diffxpos, LeftBottom.getY() + diffypos);
+            LeftTop.setXY(LeftTop.getX() + diffxpos, LeftTop.getY() + diffypos);
+            RightTop.setXY(RightTop.getX() + diffxpos, RightTop.getY() + diffypos);
+            RightBottom.setXY(RightBottom.getX() + diffxpos, RightBottom.getY() + diffypos);
+            point_pick = false;
+            press_and_release = false;
+        }
         glBegin(GL_QUADS);
             glVertex3f(LeftBottom.getX(),LeftBottom.getY(),LeftBottom.getZ());
             glVertex3f(LeftTop.getX(),LeftTop.getY(),LeftTop.getZ());
             glVertex3f(RightTop.getX(),RightTop.getY(),RightTop.getZ());
             glVertex3f(RightBottom.getX(),RightBottom.getY(),RightBottom.getZ());
         glEnd();
+        glPopMatrix();
 
         glPushMatrix();
         if(red_rotate == true){
@@ -263,7 +291,7 @@ public:
 private:
     Point LeftBottom,LeftTop,RightBottom,RightTop;
     Color color;
-    bool red_rotate = false;
+    bool red_rotate = false, point_pick = false;
 };
 
 class Mesh{
@@ -316,6 +344,10 @@ public:
         Rectangles[idx].set_red_rotate(value);
     }
 
+    void set_right_press(int idx,bool value) {
+        Rectangles[idx].set_right_press(value);
+    }
+
     void normalize(GLfloat norm){
         GLint sz = getSize();
         for(GLint i = 0;i < sz;i++){
@@ -358,12 +390,18 @@ void drawCalculator(Mesh &mesh)
     glScalef(scale, scale, scale);
     glRotatef(spin, 0.0f, 0.0f, 1.0f);
 	mesh.Draw();
-    if(left_press == true){
+    if(left_press == true) {
         for(int i = 0;i < mesh.getSize();i++){
             if(mesh.get_rectangle(i).is_inside() == true){
                 mesh.set_red_rotate(i,true);
                 left_press = false;
-                break; //not necessary.
+            }
+        }
+    }
+    else if(right_press == true) {
+        for(int i = 0;i < mesh.getSize();i++){
+            if(mesh.get_rectangle(i).is_inside() == true){
+                mesh.set_right_press(i,true);
             }
         }
     }
@@ -371,42 +409,42 @@ void drawCalculator(Mesh &mesh)
 
 void handleKeys(GLFWwindow* window, GLint key, GLint code, GLint action, GLint mode)
 {
-	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+	if (key == GLFW_KEY_ESCAPE && (action == GLFW_PRESS || action == GLFW_RELEASE))
 	{
 		glfwSetWindowShouldClose(window, GL_TRUE);
 	}
 	
-	if (key == GLFW_KEY_EQUAL && action == GLFW_PRESS)
+	if (key == GLFW_KEY_EQUAL && (action == GLFW_PRESS || action == GLFW_RELEASE))
 	{
 		scale += 0.05;
 	}
 
-	if (key == GLFW_KEY_MINUS && action == GLFW_PRESS)
+	if (key == GLFW_KEY_MINUS && (action == GLFW_PRESS || action == GLFW_RELEASE))
 	{
 		scale -= 0.05;
 	}
 
-	if (key == GLFW_KEY_LEFT && action == GLFW_PRESS)
+	if (key == GLFW_KEY_LEFT && (action == GLFW_PRESS || action == GLFW_RELEASE))
 	{
 		x -= 0.05;
 	}
 
-	if (key == GLFW_KEY_RIGHT && action == GLFW_PRESS)
+	if (key == GLFW_KEY_RIGHT && (action == GLFW_PRESS || action == GLFW_RELEASE))
 	{
 		x += 0.05;
 	}
 
-	if (key == GLFW_KEY_UP && action == GLFW_PRESS)
+	if (key == GLFW_KEY_UP && (action == GLFW_PRESS || action == GLFW_RELEASE))
 	{
 		y += 0.05;
 	}
 
-	if (key == GLFW_KEY_DOWN && action == GLFW_PRESS)
+	if (key == GLFW_KEY_DOWN && (action == GLFW_PRESS || action == GLFW_RELEASE))
 	{
 		y -= 0.05;
 	}
 
-    if(key == GLFW_KEY_R  && action == GLFW_PRESS){
+    if(key == GLFW_KEY_R  && (action == GLFW_PRESS || action == GLFW_RELEASE)){
         //anticlockwise spin.
         spin = spin + 2.0;
         if (spin > 360.0)
@@ -416,40 +454,23 @@ void handleKeys(GLFWwindow* window, GLint key, GLint code, GLint action, GLint m
 
 void handleMouse(GLFWwindow *window,GLint button,GLint action,GLint mode){
     if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS){
-        glfwGetCursorPos(window, &xpos, &ypos);
-
-        GLint viewport[4];
-        GLdouble modelview[16];
-        GLdouble projection[16];
-        GLfloat winX, winY, winZ=0;
-        GLdouble posX, posY, posZ;
-
-        glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
-        glGetDoublev(GL_PROJECTION_MATRIX, projection);
-        glGetIntegerv(GL_VIEWPORT, viewport);
-
-
-        winX = (float)xpos;
-        winY = (float)viewport[3] - (float)ypos;
-
-        glReadPixels(xpos, int(winY), 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &winZ);
-
-        gluUnProject(winX, winY, winZ, modelview, projection, viewport, &posX, &posY,
-                    &posZ);
-        xpos = posX;
-        ypos = posY;
-
+        determine_coords(window);
         left_press = true;
-        // if(left_spin >= -45.0 && left_spin<= 45.0){ left_spin +=2.0; }
-        // else { left_spin = 0.0; }
-    }
-
-    if(button == GLFW_MOUSE_BUTTON_MIDDLE && action == GLFW_PRESS){
-        
     }
     
     if(button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS){
+        determine_coords(window);
+        right_press = true;
+    }
 
+    if(button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE && right_press == true){
+        diffxpos = xpos;
+        diffypos = ypos;
+        determine_coords(window);
+        diffxpos = xpos - diffxpos;
+        diffypos = ypos - diffypos;
+        right_press = false;
+        press_and_release = true;
     }
 }
 
