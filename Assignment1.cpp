@@ -172,6 +172,14 @@ public:
         return color;
     }
 
+    bool get_red_rotate() const{
+        return red_rotate;
+    }
+
+    void set_red_rotate(bool value) {
+        red_rotate = value;
+    }
+
     void normalize(GLfloat norm){
         LeftBottom.normalize(norm);
         LeftTop.normalize(norm);
@@ -214,17 +222,29 @@ public:
     }
 
     void Draw(){
-        glPushMatrix();
         glBegin(GL_QUADS);
             glVertex3f(LeftBottom.getX(),LeftBottom.getY(),LeftBottom.getZ());
             glVertex3f(LeftTop.getX(),LeftTop.getY(),LeftTop.getZ());
             glVertex3f(RightTop.getX(),RightTop.getY(),RightTop.getZ());
             glVertex3f(RightBottom.getX(),RightBottom.getY(),RightBottom.getZ());
         glEnd();
-        glPopMatrix();
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        glColor3f(0.0f,0.0f,0.0f);
+
         glPushMatrix();
+        if(red_rotate == true){
+            glTranslatef(LeftBottom.getX(),LeftBottom.getY(),0.0f);
+            glRotatef(left_spin, 0.0f, 0.0f, 1.0f);
+            glTranslatef(-LeftBottom.getX(),-LeftBottom.getY(),0.0f);
+            glColor3f(1.0f,0.0f,0.0f);    
+            left_spin += 2.0;
+            if(left_spin > 45.0){
+                left_spin = -45.0;
+                red_rotate = false;
+            }
+        }
+        else{
+            glColor3f(0.0f,0.0f,0.0f);
+        }
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         glBegin(GL_QUADS);
             glVertex3f(LeftBottom.getX(),LeftBottom.getY(),LeftBottom.getZ());
             glVertex3f(LeftTop.getX(),LeftTop.getY(),LeftTop.getZ());
@@ -243,6 +263,7 @@ public:
 private:
     Point LeftBottom,LeftTop,RightBottom,RightTop;
     Color color;
+    bool red_rotate = false;
 };
 
 class Mesh{
@@ -291,6 +312,10 @@ public:
         return Rectangles[idx];
     }
 
+    void set_red_rotate(int idx,bool value) {
+        Rectangles[idx].set_red_rotate(value);
+    }
+
     void normalize(GLfloat norm){
         GLint sz = getSize();
         for(GLint i = 0;i < sz;i++){
@@ -336,7 +361,8 @@ void drawCalculator(Mesh &mesh)
     if(left_press == true){
         for(int i = 0;i < mesh.getSize();i++){
             if(mesh.get_rectangle(i).is_inside() == true){
-                mesh.get_rectangle(i).rotate();
+                mesh.set_red_rotate(i,true);
+                left_press = false;
                 break; //not necessary.
             }
         }
@@ -414,8 +440,8 @@ void handleMouse(GLFWwindow *window,GLint button,GLint action,GLint mode){
         ypos = posY;
 
         left_press = true;
-        if(left_spin >= -45.0 && left_spin<= 45.0){ left_spin +=2.0; }
-        else { left_spin = 0.0; }
+        // if(left_spin >= -45.0 && left_spin<= 45.0){ left_spin +=2.0; }
+        // else { left_spin = 0.0; }
     }
 
     if(button == GLFW_MOUSE_BUTTON_MIDDLE && action == GLFW_PRESS){
