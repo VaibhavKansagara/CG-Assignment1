@@ -12,6 +12,7 @@ const GLint WIDTH = 800, HEIGHT = 600;
 double xpos,ypos,diffxpos,diffypos;
 bool left_press = false,right_press =false,press_and_release = false;
 
+const string arr[] = {"0",".","=","1","2","3","+","4","5","6","-","7","8","9","*","C","+/-","%","/","black screen"};
 
 void determine_coords(GLFWwindow* window){
     glfwGetCursorPos(window, &xpos, &ypos);
@@ -147,35 +148,39 @@ class Rectangle{
 public:
     Rectangle(){}
 
-    Rectangle (Point LB,Point RT){
+    Rectangle (Point LB,Point RT,string text){
         this->LeftBottom = LB;
         LeftTop = Point(LB.getX(),RT.getY());
         RightBottom = Point(RT.getX(),LB.getY());
         this->RightTop = RT;
         color = Color(0.0f,0.0f,0.0f);
+        this->text = text;
     }
 
-    Rectangle (Point LB,Point RT,Color c){
+    Rectangle (Point LB,Point RT,Color c,string text){
         this->LeftBottom = LB;
         LeftTop = Point(LB.getX(),RT.getY());
         RightBottom = Point(RT.getX(),LB.getY());
         this->RightTop = RT;
         color = c;
+        this->text = text;
     }
 
-    Rectangle (Point LeftBottom,Point LeftTop,Point RightBottom,Point RightTop){
+    Rectangle (Point LeftBottom,Point LeftTop,Point RightBottom,Point RightTop,string text){
         this->LeftBottom = LeftBottom;
         this->LeftTop = LeftTop;
         this->RightBottom = RightBottom;
         this->RightTop = RightTop;
+        this->text = text;
         color = Color(0.0,0.0,0.0);
     }
 
-    Rectangle (Point LeftBottom,Point LeftTop,Point RightBottom,Point RightTop,Color c){
+    Rectangle (Point LeftBottom,Point LeftTop,Point RightBottom,Point RightTop,Color c,string text){
         this->LeftBottom = LeftBottom;
         this->LeftTop = LeftTop;
         this->RightBottom = RightBottom;
         this->RightTop = RightTop;
+        this->text = text;
         color = c;
     }
 
@@ -213,6 +218,10 @@ public:
         return color;
     }
 
+    string get_text() const {
+        return text;
+    }
+
     bool get_red_rotate() const{
         return red_rotate;
     }
@@ -237,6 +246,10 @@ public:
             && LeftBottom.getY() <= ypos && RightTop.getY() >= ypos)
             return true;
         return false;
+    }
+
+    void printtext() const {
+        cout<<"text on the mouse: "<<text<<endl;
     }
 
     void Draw(){
@@ -292,6 +305,7 @@ private:
     Point LeftBottom,LeftTop,RightBottom,RightTop;
     Color color;
     bool red_rotate = false, point_pick = false;
+    string text;
 };
 
 class Mesh{
@@ -310,28 +324,38 @@ public:
         //generate the rectangles.
         GLint height = rectangle.getHeight();
         GLint width = rectangle.getWidth();
-        GLfloat norm = sqrt(height*height + width*width);
+        GLfloat norm = sqrt((height)*(height) + (width)*(width));
         GLint sz=0;//keeps track of the size of the rectangle.
         for(int i = 0;i < height;i++){
-            Rectangle rstart(Point(0.0,i*1.0),Point(1.0,(i+1)*1.0),Color(1.0,0.5,0.0));
-            Rectangles.pb(rstart);
+            if(i == 0){
+                Rectangle rstart(Point(0.0,i*1.0),Point(2.0,(i+1)*1.0),Color(0.5,0.5,0.5),arr[sz]);
+                Rectangles.pb(rstart);    
+            }
+            else{
+                Rectangle rstart(Point(0.0,i*1.0),Point(1.0,(i+1)*1.0),Color(0.5,0.5,0.5),arr[sz]);
+                Rectangles.pb(rstart);
+            }
             sz++;
             for(int j = 1;j < width;j++){
+                if(i == 0 && j == 1) continue;
+                Color c;
+                if(j == width-1) c = Color(1.0,0.5,0.0);
+                else  c = Color(0.5,0.5,0.5);
                 Rectangle temp(Rectangles[sz-1].getRightBottom(),
-                            Rectangles[sz-1].getRightBottom() + Point(1.0,1.0),Color(1.0,0.5,0.0));
+                            Rectangles[sz-1].getRightBottom() + Point(1.0,1.0),c,arr[sz]);
                 Rectangles.pb(temp);
                 sz++;
             }
         }
         //now insert one large rectangle with default color black.
-        Rectangles.pb(Rectangle(Point(0.0,height*1.0),Point(width*1.0,(height+1)*1.0)));
+        Rectangles.pb(Rectangle(Point(0.0,height*1.0),Point(width*1.0,(height+1)*1.0),arr[sz]));
         //normalize the coordinates of the mesh between 0.0 and 1.0 .
         normalize(norm);
     }
 
     ~Mesh(){}
 
-    GLint getSize(){
+    GLint getSize() const{
         return Rectangles.size();
     }
 
@@ -364,6 +388,14 @@ public:
         }
     }
 
+    void printtext() const {
+        for(int i = 0;i < (this->getSize());i++){
+            if(this->get_rectangle(i).is_inside() == true){
+                this->get_rectangle(i).printtext();
+            }
+        }
+    }
+
     friend ostream & operator << (ostream &out, Mesh &mesh){
         for(int i = 0;i < mesh.getSize();i++){
             out << mesh.Rectangles[i] << endl << endl;
@@ -376,9 +408,8 @@ private:
 
 Mesh createCalculator()
 {   
-    Point up_right,bottom_left;
-    cin >> bottom_left >> up_right;
-    Rectangle rec = Rectangle(bottom_left,up_right);
+    Point up_right(0,0,0),bottom_left(4,5,0);
+    Rectangle rec = Rectangle(bottom_left,up_right,"big rectangle");
     Mesh mesh(rec);
     return mesh;
 }
@@ -409,42 +440,42 @@ void drawCalculator(Mesh &mesh)
 
 void handleKeys(GLFWwindow* window, GLint key, GLint code, GLint action, GLint mode)
 {
-	if (key == GLFW_KEY_ESCAPE && (action == GLFW_PRESS || action == GLFW_RELEASE))
+	if (key == GLFW_KEY_ESCAPE && (action == GLFW_PRESS || action == GLFW_REPEAT))
 	{
 		glfwSetWindowShouldClose(window, GL_TRUE);
 	}
 	
-	if (key == GLFW_KEY_EQUAL && (action == GLFW_PRESS || action == GLFW_RELEASE))
+	if (key == GLFW_KEY_EQUAL && (action == GLFW_PRESS || action == GLFW_REPEAT))
 	{
 		scale += 0.05;
 	}
 
-	if (key == GLFW_KEY_MINUS && (action == GLFW_PRESS || action == GLFW_RELEASE))
+	if (key == GLFW_KEY_MINUS && (action == GLFW_PRESS || action == GLFW_REPEAT))
 	{
 		scale -= 0.05;
 	}
 
-	if (key == GLFW_KEY_LEFT && (action == GLFW_PRESS || action == GLFW_RELEASE))
+	if (key == GLFW_KEY_LEFT && (action == GLFW_PRESS || action == GLFW_REPEAT))
 	{
 		x -= 0.05;
 	}
 
-	if (key == GLFW_KEY_RIGHT && (action == GLFW_PRESS || action == GLFW_RELEASE))
+	if (key == GLFW_KEY_RIGHT && (action == GLFW_PRESS || action == GLFW_REPEAT))
 	{
 		x += 0.05;
 	}
 
-	if (key == GLFW_KEY_UP && (action == GLFW_PRESS || action == GLFW_RELEASE))
+	if (key == GLFW_KEY_UP && (action == GLFW_PRESS || action == GLFW_REPEAT))
 	{
 		y += 0.05;
 	}
 
-	if (key == GLFW_KEY_DOWN && (action == GLFW_PRESS || action == GLFW_RELEASE))
+	if (key == GLFW_KEY_DOWN && (action == GLFW_PRESS || action == GLFW_REPEAT))
 	{
 		y -= 0.05;
 	}
 
-    if(key == GLFW_KEY_R  && (action == GLFW_PRESS || action == GLFW_RELEASE)){
+    if(key == GLFW_KEY_R  && (action == GLFW_PRESS || action == GLFW_REPEAT)){
         //anticlockwise spin.
         spin = spin + 2.0;
         if (spin > 360.0)
@@ -452,7 +483,7 @@ void handleKeys(GLFWwindow* window, GLint key, GLint code, GLint action, GLint m
     }
 }
 
-void handleMouse(GLFWwindow *window,GLint button,GLint action,GLint mode){
+void handleMouseButton(GLFWwindow *window,GLint button,GLint action,GLint mode){
     if(button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS){
         determine_coords(window);
         left_press = true;
@@ -474,8 +505,14 @@ void handleMouse(GLFWwindow *window,GLint button,GLint action,GLint mode){
     }
 }
 
+Mesh mesh = createCalculator();
+void CursorLocation(GLFWwindow *window, double xpos, double ypos){
+    if(right_press != true && left_press != true)
+        determine_coords(window);
+    mesh.printtext();
+}
+
 int main(){
-    Mesh mesh = createCalculator();
 	// Initializing GLFW
 	if(!glfwInit())
 	{
@@ -521,7 +558,8 @@ int main(){
 		// Get and handle user input
 		glfwPollEvents();
 		glfwSetKeyCallback(mainWindow, handleKeys);
-        glfwSetMouseButtonCallback(mainWindow,handleMouse);
+        glfwSetMouseButtonCallback(mainWindow,handleMouseButton);
+        glfwSetCursorPosCallback(mainWindow, CursorLocation);
 		// Clear window
 		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 		// Clear colour buffer before next frame
