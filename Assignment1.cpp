@@ -308,19 +308,19 @@ private:
     string text;
 };
 
-class Mesh{
+class Calculator{
 public:
-    Mesh(){}
+    Calculator(){}
 
-    Mesh(const Mesh& other){
+    Calculator(const Calculator& other){
         Rectangles = other.Rectangles;
     }
 
-    Mesh(vector<Rectangle> vt){
+    Calculator(vector<Rectangle> vt){
         Rectangles = vt;
     }
 
-    Mesh(Rectangle &rectangle){
+    Calculator(Rectangle &rectangle){
         //generate the rectangles.
         GLint height = rectangle.getHeight();
         GLint width = rectangle.getWidth();
@@ -353,7 +353,7 @@ public:
         normalize(norm);
     }
 
-    ~Mesh(){}
+    ~Calculator(){}
 
     GLint getSize() const{
         return Rectangles.size();
@@ -396,7 +396,7 @@ public:
         }
     }
 
-    friend ostream & operator << (ostream &out, Mesh &mesh){
+    friend ostream & operator << (ostream &out, Calculator &mesh){
         for(int i = 0;i < mesh.getSize();i++){
             out << mesh.Rectangles[i] << endl << endl;
         }
@@ -406,15 +406,15 @@ private:
     vector<Rectangle> Rectangles;
 };
 
-Mesh createCalculator()
+Calculator createCalculator()
 {   
     Point up_right(0,0,0),bottom_left(4,5,0);
     Rectangle rec = Rectangle(bottom_left,up_right,"big rectangle");
-    Mesh mesh(rec);
+    Calculator mesh(rec);
     return mesh;
 }
 
-void drawCalculator(Mesh &mesh)
+void drawCalculator(Calculator &mesh)
 {   
     glLoadIdentity();//load identity matrix
     glTranslatef(x, y, 0);//move forward 4 units
@@ -505,7 +505,7 @@ void handleMouseButton(GLFWwindow *window,GLint button,GLint action,GLint mode){
     }
 }
 
-Mesh mesh = createCalculator();
+Calculator mesh = createCalculator();
 void CursorLocation(GLFWwindow *window, double xpos, double ypos){
     if(right_press != true && left_press != true)
         determine_coords(window);
@@ -558,8 +558,8 @@ int main(){
 		// Get and handle user input
 		glfwPollEvents();
 		glfwSetKeyCallback(mainWindow, handleKeys);
-        glfwSetMouseButtonCallback(mainWindow,handleMouseButton);
-        glfwSetCursorPosCallback(mainWindow, CursorLocation);
+		glfwSetMouseButtonCallback(mainWindow,handleMouseButton);
+		glfwSetCursorPosCallback(mainWindow, CursorLocation);
 		// Clear window
 		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 		// Clear colour buffer before next frame
